@@ -14,13 +14,20 @@ Both plugin and sample can be built using CMake and any recent C/C++ compiler (g
 ### ● FFmpeg plugin
 To build the plugin, go to the source directory and create a build directory where CMake configuration will be performed.
 
-On Windows, you must defined FFMPEG_ROOT. This variable contains the path to the FFMpeg libraries and header files.
+On Windows, you must defined `FFMPEG_ROOT`. This variable contains the path to the FFmpeg libraries and header files.
 
 ```
 mkdir build
 cd build
 cmake .. \
     -DFFMPEG_ROOT=<path where FFmpeg sdk> \
+    -DCMAKE_INSTALL_PREFIX=<plugin install path>
+```
+
+On Linux, do not forget to specify `CMAKE_BUILD_TYPE` or the install will fail. If FFmpeg was installed using the system package manager, there is no need to specify `FFMPEG_ROOT`.
+```
+cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=<plugin install path>
 ```
 
