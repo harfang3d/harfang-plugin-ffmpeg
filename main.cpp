@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <mutex>
+#include <condition_variable>
 #include <atomic>
 #include <thread>
 #include <queue>
@@ -699,7 +700,7 @@ VIDEO_STREAM_API VideoStreamHandle Open(const char* name) {
 }
 
 VIDEO_STREAM_API int Play(VideoStreamHandle h) {
-	auto& it = g_streams.find(h);
+	auto it = g_streams.find(h);
 	if (it == g_streams.end()) {
 		return 0;
 	}
@@ -707,7 +708,7 @@ VIDEO_STREAM_API int Play(VideoStreamHandle h) {
 }
 
 VIDEO_STREAM_API int Pause(VideoStreamHandle h) {
-	auto& it = g_streams.find(h);
+	auto it = g_streams.find(h);
 	if (it == g_streams.end()) {
 		return 0;
 	}
@@ -718,7 +719,7 @@ VIDEO_STREAM_API int Pause(VideoStreamHandle h) {
 }
 
 VIDEO_STREAM_API int Close(VideoStreamHandle h) {
-	auto& it = g_streams.find(h);
+	auto it = g_streams.find(h);
 	if (it == g_streams.end()) {
 		return 0;
 	}
@@ -727,7 +728,7 @@ VIDEO_STREAM_API int Close(VideoStreamHandle h) {
 }
 
 VIDEO_STREAM_API int Seek(VideoStreamHandle h, time_ns t) {
-	auto& it = g_streams.find(h);
+	auto it = g_streams.find(h);
 	if (it == g_streams.end()) {
 		return 0;
 	}
@@ -735,7 +736,7 @@ VIDEO_STREAM_API int Seek(VideoStreamHandle h, time_ns t) {
 }
 
 VIDEO_STREAM_API time_ns GetDuration(VideoStreamHandle h) {
-	auto& it = g_streams.find(h);
+	auto it = g_streams.find(h);
 	if (it == g_streams.end()) {
 		return 0;
 	}
@@ -748,7 +749,7 @@ VIDEO_STREAM_API time_ns GetDuration(VideoStreamHandle h) {
 }
 
 VIDEO_STREAM_API time_ns GetTimeStamp(VideoStreamHandle h) {
-	auto& it = g_streams.find(h);
+	auto it = g_streams.find(h);
 	if (it == g_streams.end()) {
 		return 0;
 	}
@@ -764,7 +765,7 @@ VIDEO_STREAM_API int GetFrame(VideoStreamHandle h, const void** data, int* width
 	*width = *height = *pitch = 0;
 	*format = VFF_UNKNOWN;
 
-	auto& it = g_streams.find(h);
+	auto it = g_streams.find(h);
 	if (it == g_streams.end()) {
 		return 0;
 	}
@@ -782,7 +783,7 @@ VIDEO_STREAM_API int GetFrame(VideoStreamHandle h, const void** data, int* width
 }
 
 VIDEO_STREAM_API int FreeFrame(VideoStreamHandle h, int frame) {
-	auto& it = g_streams.find(h);
+	auto it = g_streams.find(h);
 	if (it == g_streams.end()) {
 		return 0;
 	}
