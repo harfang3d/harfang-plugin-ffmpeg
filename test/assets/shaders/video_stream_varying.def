@@ -1,6 +1,3 @@
-// Copyright (c) NWNC HARFANG and contributors. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for details.
-
 vec2 vTexCoord0 : TEXCOORD0;
 
 vec3 a_position : POSITION;

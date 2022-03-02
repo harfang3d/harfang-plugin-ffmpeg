@@ -21,6 +21,13 @@ extern "C" {
 #include <libavdevice/avdevice.h>
 }
 
+// This should be dropped as soon as the major LTS linux distros switch to ffmpeg >= 59
+#if (LIBAVFORMAT_VERSION_MAJOR < 59)
+#	define ff_const 
+#else
+#	define ff_const const
+#endif
+
 struct VideoStream {
 	struct Demuxer {
 		enum State : int {
@@ -113,8 +120,7 @@ struct VideoStream {
 	/// Release (mark as available) a frame
 	bool ReleaseFrame(int id);
 
-	AVCodec* decoder;
-	AVCodecContext* decoder_ctx;
+	AVCodecContext* codec_ctx;
 	AVDictionary* dict;
 	AVFormatContext* fmt_ctx;
 
@@ -294,8 +300,7 @@ void VideoStream::Demuxer::Update() {
 }
 
 VideoStream::VideoStream()
-	: decoder(NULL)
-	, decoder_ctx(NULL)
+	: codec_ctx(NULL)
 	, dict(NULL)
 	, fmt_ctx(NULL)
 	, hw_pix_fmt(AV_PIX_FMT_NONE)
@@ -336,7 +341,7 @@ bool VideoStream::Open(const char* uri) {
 	av_dict_set(&dict, "tune", "zerolatency", 0);
 	//av_dict_set(&dict, "pixel_format", "nv12", 0);
 
-	AVInputFormat* input_format = NULL;
+	ff_const AVInputFormat* input_format = NULL;
 
 #ifdef _WINDOWS
 	// eat spaces
@@ -362,6 +367,7 @@ bool VideoStream::Open(const char* uri) {
 	}
 
 	// grab "best" video stream.
+	ff_const AVCodec* decoder = NULL;
 	video_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &decoder, 0);
 	if (video_index < 0) {
 		return false;
@@ -379,20 +385,20 @@ bool VideoStream::Open(const char* uri) {
 		}
 	}
 
-	decoder_ctx = avcodec_alloc_context3(decoder);
-	if (decoder_ctx == NULL) {
+	codec_ctx = avcodec_alloc_context3(decoder);
+	if (codec_ctx == NULL) {
 		return false;
 	}
 
-	if (decoder_ctx->thread_count == 1) {
-		decoder_ctx->thread_count = std::thread::hardware_concurrency();
-		if (decoder_ctx->thread_count > 8) {
-			decoder_ctx->thread_count = 8;
+	if (codec_ctx->thread_count == 1) {
+		codec_ctx->thread_count = std::thread::hardware_concurrency();
+		if (codec_ctx->thread_count > 8) {
+			codec_ctx->thread_count = 8;
 		}
-		decoder_ctx->thread_type = FF_THREAD_SLICE;
+		codec_ctx->thread_type = FF_THREAD_SLICE;
 	}
 
-	if (avcodec_parameters_to_context(decoder_ctx, fmt_ctx->streams[video_index]->codecpar) < 0) {
+	if (avcodec_parameters_to_context(codec_ctx, fmt_ctx->streams[video_index]->codecpar) < 0) {
 		return false;
 	}
 
@@ -401,12 +407,12 @@ bool VideoStream::Open(const char* uri) {
 		ret = av_hwdevice_ctx_create(&hw_device_ctx, config->device_type, NULL, NULL, 0);
 		if (ret >= 0) {
 			hw_pix_fmt = config->pix_fmt;
-			decoder_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+			codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
 		}
 	}
 
 	// initialize video decoder.
-	ret = avcodec_open2(decoder_ctx, decoder, NULL);
+	ret = avcodec_open2(codec_ctx, decoder, NULL);
 	if (ret < 0) {
 		return false;
 	}
@@ -416,10 +422,10 @@ bool VideoStream::Open(const char* uri) {
 	new_frame = true;
 	buffer_id = 0;
 	output = av_frame_alloc();
-	available.push_back(new uint8_t[decoder_ctx->width * decoder_ctx->height * 3]);
-	av_image_fill_arrays(output->data, output->linesize, available.front(), AV_PIX_FMT_RGB24, decoder_ctx->width, decoder_ctx->height, 1);
+	available.push_back(new uint8_t[codec_ctx->width * codec_ctx->height * 3]);
+	av_image_fill_arrays(output->data, output->linesize, available.front(), AV_PIX_FMT_RGB24, codec_ctx->width, codec_ctx->height, 1);
 
-	avcodec_flush_buffers(decoder_ctx);
+	avcodec_flush_buffers(codec_ctx);
 
 	return true;
 }
@@ -454,9 +460,9 @@ void VideoStream::Stop() {
 		av_buffer_unref(&hw_device_ctx);
 		hw_device_ctx = NULL;
 	}
-	if (decoder_ctx != NULL) {
-		avcodec_free_context(&decoder_ctx);
-		decoder_ctx = NULL;
+	if (codec_ctx != NULL) {
+		avcodec_free_context(&codec_ctx);
+		codec_ctx = NULL;
 	}
 	if (fmt_ctx != NULL) {
 		avformat_close_input(&fmt_ctx);
@@ -517,7 +523,7 @@ void VideoStream::Loop() {
 			demuxer.Clear();
 			int64_t ts = seek * AV_TIME_BASE / 1000000000L;
 			avformat_seek_file(fmt_ctx, -1, INT64_MIN, ts, INT64_MAX, 0);
-			avcodec_flush_buffers(decoder_ctx);
+			avcodec_flush_buffers(codec_ctx);
 			current = std::chrono::system_clock::now();
 			elapsed = seek.exchange(-1) / 1000;
 			demuxer.Resume();
@@ -528,9 +534,9 @@ void VideoStream::Loop() {
 			continue;
 		}
 
-		ret = avcodec_send_packet(decoder_ctx, packet);
+		ret = avcodec_send_packet(codec_ctx, packet);
 		while ((ret >= 0) && (state == VideoStream::Run) && (seek < 0)) {
-			ret = avcodec_receive_frame(decoder_ctx, frame);
+			ret = avcodec_receive_frame(codec_ctx, frame);
 			if ((ret == AVERROR(EAGAIN)) || (ret == AVERROR_EOF)) {
 				ret = 0;
 				break;
@@ -555,12 +561,12 @@ void VideoStream::Loop() {
 				}
 
 				if (converter == NULL) {
-					converter = sws_getContext(src->width, src->height, (AVPixelFormat)src->format, decoder_ctx->width, decoder_ctx->height, AV_PIX_FMT_RGB24, SWS_FAST_BILINEAR, NULL, NULL, NULL);
+					converter = sws_getContext(src->width, src->height, (AVPixelFormat)src->format, codec_ctx->width, codec_ctx->height, AV_PIX_FMT_RGB24, SWS_FAST_BILINEAR, NULL, NULL, NULL);
 				}
 				
 				{
 					std::lock_guard<std::mutex> lock(buffer_mutex);
-					sws_scale(converter, (const unsigned char* const*)src->data, src->linesize, 0, decoder_ctx->height, output->data, output->linesize);
+					sws_scale(converter, (const unsigned char* const*)src->data, src->linesize, 0, codec_ctx->height, output->data, output->linesize);
 					new_frame = true;
 				}
 			}
@@ -625,9 +631,9 @@ int VideoStream::CommitFrame(uint8_t **out) {
 
 	// prepare new frame
 	if (available.empty()) {
-		available.push_back(new uint8_t[decoder_ctx->width * decoder_ctx->height * 3]);
+		available.push_back(new uint8_t[codec_ctx->width * codec_ctx->height * 3]);
 	}
-	av_image_fill_arrays(output->data, output->linesize, available.front(), AV_PIX_FMT_RGB24, decoder_ctx->width, decoder_ctx->height, 1);
+	av_image_fill_arrays(output->data, output->linesize, available.front(), AV_PIX_FMT_RGB24, codec_ctx->width, codec_ctx->height, 1);
 
 	new_frame = false;
 
@@ -775,9 +781,9 @@ VIDEO_STREAM_API int GetFrame(VideoStreamHandle h, const void** data, int* width
 		return 0;
 	}
 
-	*width = it->second.decoder_ctx->width;
-	*height = it->second.decoder_ctx->height;
-	*pitch = it->second.decoder_ctx->width * 3;
+	*width = it->second.codec_ctx->width;
+	*height = it->second.codec_ctx->height;
+	*pitch = it->second.codec_ctx->width * 3;
 	*format = VFF_RGB24;
 	return id;
 }
