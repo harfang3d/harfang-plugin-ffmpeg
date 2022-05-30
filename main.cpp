@@ -422,8 +422,9 @@ bool VideoStream::Open(const char* uri) {
 	new_frame = true;
 	buffer_id = 0;
 	output = av_frame_alloc();
-	available.push_back(new uint8_t[codec_ctx->width * codec_ctx->height * 3]);
-	av_image_fill_arrays(output->data, output->linesize, available.front(), AV_PIX_FMT_RGB24, codec_ctx->width, codec_ctx->height, 1);
+
+	available.push_back(new uint8_t[codec_ctx->width * codec_ctx->height * 4]);
+	av_image_fill_arrays(output->data, output->linesize, available.front(), AV_PIX_FMT_RGBA, codec_ctx->width, codec_ctx->height, 1);
 
 	avcodec_flush_buffers(codec_ctx);
 
@@ -561,7 +562,7 @@ void VideoStream::Loop() {
 				}
 
 				if (converter == NULL) {
-					converter = sws_getContext(src->width, src->height, (AVPixelFormat)src->format, codec_ctx->width, codec_ctx->height, AV_PIX_FMT_RGB24, SWS_FAST_BILINEAR, NULL, NULL, NULL);
+					converter = sws_getContext(src->width, src->height, (AVPixelFormat)src->format, codec_ctx->width, codec_ctx->height, AV_PIX_FMT_RGBA, SWS_FAST_BILINEAR, NULL, NULL, NULL);
 				}
 				
 				{
@@ -631,9 +632,9 @@ int VideoStream::CommitFrame(uint8_t **out) {
 
 	// prepare new frame
 	if (available.empty()) {
-		available.push_back(new uint8_t[codec_ctx->width * codec_ctx->height * 3]);
+		available.push_back(new uint8_t[codec_ctx->width * codec_ctx->height * 4]);
 	}
-	av_image_fill_arrays(output->data, output->linesize, available.front(), AV_PIX_FMT_RGB24, codec_ctx->width, codec_ctx->height, 1);
+	av_image_fill_arrays(output->data, output->linesize, available.front(), AV_PIX_FMT_RGBA, codec_ctx->width, codec_ctx->height, 1);
 
 	new_frame = false;
 
@@ -759,7 +760,7 @@ VIDEO_STREAM_API time_ns GetTimeStamp(VideoStreamHandle h) {
 	if (it == g_streams.end()) {
 		return 0;
 	}
-	return it->second.elapsed;
+	return it->second.elapsed * 1000;
 }
 
 VIDEO_STREAM_API int IsEnded(VideoStreamHandle h) {
@@ -783,8 +784,8 @@ VIDEO_STREAM_API int GetFrame(VideoStreamHandle h, const void** data, int* width
 
 	*width = it->second.codec_ctx->width;
 	*height = it->second.codec_ctx->height;
-	*pitch = it->second.codec_ctx->width * 3;
-	*format = VFF_RGB24;
+	*pitch = it->second.codec_ctx->width * 4;
+	*format = VFF_RGBA32;
 	return id;
 }
 
