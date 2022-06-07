@@ -110,7 +110,14 @@ int main(int argc, char** argv) {
 	hg::Keyboard keyboard;
 	hg::Mouse mouse;
 
-	IVideoStreamer streamer = hg::MakeVideoStreamer("hg_ffmpeg.dll");
+	const char *module_name = 
+#if _WIN32
+	"hg_ffmpeg.dll";
+#else
+	"hg_ffmpeg.so";
+#endif
+
+	IVideoStreamer streamer = hg::MakeVideoStreamer(module_name);
 	if (!hg::IsValid(streamer)) {
 		hg::error("failed to load video stream plugin");
 		return EXIT_FAILURE;
@@ -161,7 +168,7 @@ int main(int argc, char** argv) {
 		bgfx::setViewFrameBuffer(view_id, BGFX_INVALID_HANDLE);
 		bgfx::setViewMode(view_id, bgfx::ViewMode::DepthDescending);
 		bgfx::touch(view_id);
-		bgfx::setViewClear(view_id, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, hg::ColorToABGR32(hg::Color::Green), 1, 0);
+		bgfx::setViewClear(view_id, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, hg::ColorToABGR32(hg::Color::Grey), 1, 0);
 		bgfx::setViewRect(view_id, 0, 0, res_x, res_y);
 		bgfx::setViewName(view_id, "draw_texture");
 

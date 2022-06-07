@@ -41,14 +41,13 @@ cmake .. -DHG_CPPSDK_PATH=<path to harfang cpp sdk> \
          -DCMAKE_INSTALL_PREFIX=<install path>
 ```
 
-Once the build is complete, the installation directory should contain all the required shared libraries and an executable binary names `hg_vid_play`.
+Once the build is complete, the install directory should contain all the required shared libraries and an executable binary named `hg_vid_play`.
 
 ```
 hg_vid_play movie.mp4
 ```
 
 ![test program screenshot](screenshot.jpg)
-[video source](https://www.usgs.gov/media/videos/heat-desert-tortoises-survival-full-length-part-2-4)
 
 ### ● Lua sample
 The test directory also contains a lua script ([main.lua](./test/main.lua)). This script maps a video stream onto a spinning cube. 

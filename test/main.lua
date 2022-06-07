@@ -38,7 +38,7 @@ while not hg.ReadKeyboard('default'):Key(hg.K_Escape) do
 	dt = hg.TickClock()
 	angle = angle + hg.time_to_sec_f(dt)
 
-	_, texture, size, tex_fmt = hg.UpdateTexture(streamer, handle, texture, size, fmt)
+	_, texture, size, fmt = hg.UpdateTexture(streamer, handle, texture, size, fmt)
 	tex_uniforms = {hg.MakeUniformSetTexture('u_source', texture, 0)}
 
 	view_id = 0
